@@ -1,0 +1,37 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": ".claude/hooks/block-hardcoded-secrets.sh" },
+          { "type": "command", "command": ".claude/hooks/block-tracking-sdks.sh" }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": ".claude/hooks/block-ai-attribution.sh" }
+        ]
+      }
+    ],
+
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": ".claude/hooks/lint-changed-file.sh" },
+          { "type": "command", "command": ".claude/hooks/warn-console-log.sh" }
+        ]
+      }
+    ],
+
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": ".claude/hooks/warn-skip-checks.sh" }
+        ]
+      }
+    ]
+  }
+}
