@@ -4,7 +4,7 @@ import {
   saveCachedInstruments,
 } from "../storage/instruments.storage";
 
-const API_BASE = "https://punji-bandhu.79technologies.com";
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 // djb2 hash — stable, no external deps
 function djb2(str: string): string {

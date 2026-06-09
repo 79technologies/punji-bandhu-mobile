@@ -1,4 +1,4 @@
-const API_BASE = "https://punji-bandhu.79technologies.com";
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 export type PriceTick = {
   ltp: number; // last traded price
