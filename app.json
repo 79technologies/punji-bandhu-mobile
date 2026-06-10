@@ -13,6 +13,7 @@
     },
     "android": {
       "package": "com.punjibandhu.app",
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#0F2A4A"
       }
