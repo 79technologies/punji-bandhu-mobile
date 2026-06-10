@@ -180,7 +180,12 @@ export default function HomeScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={item.holding.symbol}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            style={({ pressed }) => [
+              styles.row,
+              item.status === 'suspended' && styles.rowSuspended,
+              item.status === 'delisted' && styles.rowDelisted,
+              pressed && styles.rowPressed,
+            ]}
           >
             <View style={styles.rowLeft}>
               <View style={styles.rowSymbolRow}>
@@ -338,6 +343,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     backgroundColor: colors.surface,
   },
+  rowSuspended: { backgroundColor: '#FEFCE8' },
+  rowDelisted: { backgroundColor: '#FFF1F2' },
   rowPressed: { backgroundColor: colors.surfaceSunken },
   rowLeft: { flex: 1, paddingRight: spacing.md },
   rowSymbolRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },

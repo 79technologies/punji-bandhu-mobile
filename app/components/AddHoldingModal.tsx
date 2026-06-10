@@ -172,6 +172,8 @@ export default function AddHoldingModal({ visible, onClose, onAdd, instruments, 
                     onPress={() => setPicked(item)}
                     style={({ pressed }) => [
                       styles.resultRow,
+                      item.status === 'suspended' && styles.resultRowSuspended,
+                      item.status === 'delisted' && styles.resultRowDelisted,
                       pressed && styles.resultRowPressed,
                     ]}
                   >
@@ -279,6 +281,8 @@ const styles = StyleSheet.create({
     minHeight: minTapTarget + 8,
     backgroundColor: colors.surface,
   },
+  resultRowSuspended: { backgroundColor: '#FEFCE8' },
+  resultRowDelisted: { backgroundColor: '#FFF1F2' },
   resultRowPressed: { backgroundColor: colors.surfaceSunken },
   resultMain: { flex: 1, paddingRight: spacing.md },
   resultSymbol: { ...type.bodyStrong, color: colors.navy900 },
