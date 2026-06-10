@@ -1,5 +1,7 @@
 export type Exchange = 'NSE' | 'BSE';
 
+export type InstrumentStatus = 'active' | 'suspended' | 'delisted';
+
 export type Stock = {
   symbol: string;
   name: string;
@@ -13,6 +15,7 @@ export type Instrument = {
   symbol: string;
   name: string;
   exchange: Exchange;
+  status: InstrumentStatus;
 };
 
 export type Holding = {
