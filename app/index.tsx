@@ -13,6 +13,7 @@ import { router } from 'expo-router';
 import { hasOnboarded } from '../src/storage/onboarding.storage';
 
 import AddHoldingModal from './components/AddHoldingModal';
+import DiagonalStripes from './components/DiagonalStripes';
 import SwipeableRow from './components/SwipeableRow';
 import { fetchInstruments, findInstrument } from '../src/services/instruments.service';
 import { openPriceFeed, type PriceTick } from '../src/services/stream.service';
@@ -187,6 +188,12 @@ export default function HomeScreen() {
               pressed && styles.rowPressed,
             ]}
           >
+            {item.status === 'suspended' && (
+              <DiagonalStripes color="#D97706" opacity={0.12} />
+            )}
+            {item.status === 'delisted' && (
+              <DiagonalStripes color="#DC2626" opacity={0.1} />
+            )}
             <View style={styles.rowLeft}>
               <View style={styles.rowSymbolRow}>
                 <Text style={styles.rowSymbol}>{item.holding.symbol}</Text>
@@ -342,6 +349,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.lg,
     backgroundColor: colors.surface,
+    overflow: 'hidden',
   },
   rowSuspended: { backgroundColor: '#FEFCE8' },
   rowDelisted: { backgroundColor: '#FFF1F2' },

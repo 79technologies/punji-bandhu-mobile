@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import DiagonalStripes from './DiagonalStripes';
 import { searchInstruments } from '../../src/services/instruments.service';
 import type { Holding, Instrument } from '../../src/types/domain';
 import { colors, minTapTarget, radius, spacing, type } from '../../src/theme/tokens';
@@ -177,6 +178,12 @@ export default function AddHoldingModal({ visible, onClose, onAdd, instruments, 
                       pressed && styles.resultRowPressed,
                     ]}
                   >
+                    {item.status === 'suspended' && (
+                      <DiagonalStripes color="#D97706" opacity={0.12} />
+                    )}
+                    {item.status === 'delisted' && (
+                      <DiagonalStripes color="#DC2626" opacity={0.1} />
+                    )}
                     <View style={styles.resultMain}>
                       <View style={styles.resultSymbolRow}>
                         <Text style={styles.resultSymbol}>{item.symbol}</Text>
@@ -280,6 +287,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     minHeight: minTapTarget + 8,
     backgroundColor: colors.surface,
+    overflow: 'hidden',
   },
   resultRowSuspended: { backgroundColor: '#FEFCE8' },
   resultRowDelisted: { backgroundColor: '#FFF1F2' },
