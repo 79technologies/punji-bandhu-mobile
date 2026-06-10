@@ -155,6 +155,10 @@ export default function AddHoldingModal({ visible, onClose, onAdd, instruments, 
                       <ActivityIndicator size="large" color={colors.navy500} />
                       <Text style={styles.empty}>Loading stocks…</Text>
                     </View>
+                  ) : instruments.length === 0 ? (
+                    <Text style={styles.empty}>
+                      Could not load stock list. Check your connection and try again.
+                    </Text>
                   ) : (
                     <Text style={styles.empty}>
                       No matches. Try another symbol or company name.
@@ -172,7 +176,16 @@ export default function AddHoldingModal({ visible, onClose, onAdd, instruments, 
                     ]}
                   >
                     <View style={styles.resultMain}>
-                      <Text style={styles.resultSymbol}>{item.symbol}</Text>
+                      <View style={styles.resultSymbolRow}>
+                        <Text style={styles.resultSymbol}>{item.symbol}</Text>
+                        {item.status !== 'active' && (
+                          <View style={item.status === 'suspended' ? styles.badgeSuspended : styles.badgeDelisted}>
+                            <Text style={item.status === 'suspended' ? styles.badgeSuspendedText : styles.badgeDelistedText}>
+                              {item.status === 'suspended' ? 'SUSPENDED' : 'DELISTED'}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                       <Text style={styles.resultName} numberOfLines={1}>
                         {item.name}
                       </Text>
@@ -201,7 +214,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
   },
-  title: { ...type.h2, color: colors.navy900 },
+  title: { ...type.h2, color: colors.navy900, flex: 1 },
   closeBtn: {
     minHeight: minTapTarget,
     minWidth: minTapTarget,
@@ -240,6 +253,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.xl,
   },
+
+  resultSymbolRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  badgeSuspended: {
+    paddingHorizontal: spacing.xs + 2,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    backgroundColor: '#FEF9C3',
+  },
+  badgeSuspendedText: { fontSize: 10, fontWeight: '700' as const, color: '#B45309', letterSpacing: 0.4 },
+  badgeDelisted: {
+    paddingHorizontal: spacing.xs + 2,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    backgroundColor: '#FEE2E2',
+  },
+  badgeDelistedText: { fontSize: 10, fontWeight: '700' as const, color: '#A12626', letterSpacing: 0.4 },
 
   resultRow: {
     flexDirection: 'row',

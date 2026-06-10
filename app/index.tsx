@@ -18,7 +18,7 @@ import { fetchInstruments, findInstrument } from '../src/services/instruments.se
 import { openPriceFeed, type PriceTick } from '../src/services/stream.service';
 import { loadHoldings, saveHoldings } from '../src/storage/holdings.storage';
 import { colors, minTapTarget, radius, shadow, spacing, type } from '../src/theme/tokens';
-import type { Holding, Instrument } from '../src/types/domain';
+import type { Holding, Instrument, InstrumentStatus } from '../src/types/domain';
 
 const inr = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -32,6 +32,7 @@ type HoldingRow = {
   lastPrice: number;
   closePrice: number;
   value: number;
+  status: InstrumentStatus | undefined;
 };
 
 export default function HomeScreen() {
@@ -45,18 +46,36 @@ export default function HomeScreen() {
   const [adding, setAdding] = useState(false);
 
   useEffect(() => {
+    console.log('[HomeScreen] mounted — checking onboarding state');
     hasOnboarded().then((val) => {
+      console.log(`[HomeScreen] hasOnboarded resolved: ${val}`);
       setOnboarded(val);
       if (!val) {
+        console.log('[HomeScreen] not onboarded — redirecting to /welcome');
         router.replace('/welcome');
       } else {
+        console.log('[HomeScreen] onboarded — loading holdings and instruments');
         loadHoldings()
-          .then(setHoldings)
+          .then((h) => {
+            console.log(`[HomeScreen] loadHoldings resolved: ${h.length} holdings`);
+            setHoldings(h);
+          })
+          .catch((err) => console.error('[HomeScreen] loadHoldings failed:', err))
           .finally(() => setLoaded(true));
+        console.log('[HomeScreen] calling fetchInstruments');
         fetchInstruments()
-          .then(setInstruments)
-          .finally(() => setInstrumentsLoading(false));
+          .then((list) => {
+            console.log(`[HomeScreen] fetchInstruments resolved: ${list.length} instruments`);
+            setInstruments(list);
+          })
+          .catch((err) => console.error('[HomeScreen] fetchInstruments threw unexpectedly:', err))
+          .finally(() => {
+            console.log('[HomeScreen] instrumentsLoading → false');
+            setInstrumentsLoading(false);
+          });
       }
+    }).catch((err) => {
+      console.error('[HomeScreen] hasOnboarded failed:', err);
     });
   }, []);
 
@@ -100,6 +119,7 @@ export default function HomeScreen() {
         lastPrice,
         closePrice,
         value: lastPrice * h.quantity,
+        status: instrument?.status,
       };
     });
   }, [holdings, instruments, feedData]);
@@ -168,6 +188,16 @@ export default function HomeScreen() {
                 <View style={styles.exchangeBadge}>
                   <Text style={styles.exchangeLabel}>{item.holding.exchange}</Text>
                 </View>
+                {item.status === 'suspended' && (
+                  <View style={styles.badgeSuspended}>
+                    <Text style={styles.badgeSuspendedText}>SUSPENDED</Text>
+                  </View>
+                )}
+                {item.status === 'delisted' && (
+                  <View style={styles.badgeDelisted}>
+                    <Text style={styles.badgeDelistedText}>DELISTED</Text>
+                  </View>
+                )}
               </View>
               <Text style={styles.rowName} numberOfLines={1}>
                 {item.name}
@@ -321,6 +351,20 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   exchangeLabel: { fontSize: 11, fontWeight: '600' as const, color: colors.textMuted, letterSpacing: 0.3 },
+  badgeSuspended: {
+    paddingHorizontal: spacing.xs + 2,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    backgroundColor: '#FEF9C3',
+  },
+  badgeSuspendedText: { fontSize: 10, fontWeight: '700' as const, color: '#B45309', letterSpacing: 0.4 },
+  badgeDelisted: {
+    paddingHorizontal: spacing.xs + 2,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+    backgroundColor: '#FEE2E2',
+  },
+  badgeDelistedText: { fontSize: 10, fontWeight: '700' as const, color: '#A12626', letterSpacing: 0.4 },
   rowName: { ...type.caption, color: colors.textSecondary, marginTop: 2 },
   rowMeta: { ...type.caption, color: colors.textMuted, marginTop: 4 },
   rowGain: { ...type.caption, color: colors.gain, marginTop: 2 },
