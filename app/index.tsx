@@ -63,6 +63,7 @@ export default function HomeScreen() {
   const [loaded, setLoaded] = useState(false);
   const [showValues, setShowValues] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [editingHolding, setEditingHolding] = useState<Holding | null>(null);
 
   useEffect(() => {
     console.log('[HomeScreen] mounted — checking onboarding state');
@@ -221,6 +222,21 @@ export default function HomeScreen() {
     );
   }, []);
 
+  const handleEdit = useCallback((updated: Holding) => {
+    setHoldings((prev) =>
+      prev.map((h) =>
+        h.symbol === updated.symbol && h.exchange === updated.exchange
+          ? { ...h, quantity: updated.quantity }
+          : h,
+      ),
+    );
+  }, []);
+
+  const handleModalClose = useCallback(() => {
+    setAdding(false);
+    setEditingHolding(null);
+  }, []);
+
   const renderRow = useCallback(
     ({ item }: { item: HoldingRow }) => {
       const change = item.closePrice > 0 ? item.lastPrice - item.closePrice : null;
@@ -233,7 +249,8 @@ export default function HomeScreen() {
         <SwipeableRow onDelete={() => handleRemove(item)}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={item.holding.symbol}
+            accessibilityLabel={`Edit ${item.holding.symbol}`}
+            onPress={() => setEditingHolding(item.holding)}
             style={({ pressed }) => [
               styles.row,
               item.status === 'suspended' && styles.rowSuspended,
@@ -336,7 +353,7 @@ export default function HomeScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Add a stock"
-          onPress={() => setAdding(true)}
+          onPress={() => { setEditingHolding(null); setAdding(true); }}
           style={({ pressed }) => [
             styles.fab,
             pressed && styles.fabPressed,
@@ -347,9 +364,11 @@ export default function HomeScreen() {
       </View>
 
       <AddHoldingModal
-        visible={adding}
-        onClose={() => setAdding(false)}
+        visible={adding || editingHolding !== null}
+        onClose={handleModalClose}
         onAdd={handleAdd}
+        onSave={handleEdit}
+        editHolding={editingHolding ?? undefined}
         instruments={instruments}
         instrumentsLoading={instrumentsLoading}
       />

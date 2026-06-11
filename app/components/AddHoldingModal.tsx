@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import DiagonalStripes from './DiagonalStripes';
-import { searchInstruments } from '../../src/services/instruments.service';
+import { findInstrument, searchInstruments } from '../../src/services/instruments.service';
 import type { Holding, Instrument } from '../../src/types/domain';
 import { colors, minTapTarget, radius, spacing, type } from '../../src/theme/tokens';
 
@@ -23,16 +23,34 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   onAdd: (holding: Holding) => void;
+  onSave?: (holding: Holding) => void;
+  editHolding?: Holding;
   instruments: Instrument[];
   instrumentsLoading: boolean;
 };
 
-export default function AddHoldingModal({ visible, onClose, onAdd, instruments, instrumentsLoading }: Props) {
+export default function AddHoldingModal({ visible, onClose, onAdd, onSave, editHolding, instruments, instrumentsLoading }: Props) {
+  const isEditMode = !!editHolding;
   const [query, setQuery] = useState('');
   const [picked, setPicked] = useState<Instrument | null>(null);
   const [quantity, setQuantity] = useState('');
 
   const results = useMemo(() => searchInstruments(instruments, query), [instruments, query]);
+
+  useEffect(() => {
+    if (!visible) return;
+    if (editHolding) {
+      const inst = findInstrument(instruments, editHolding.symbol, editHolding.exchange);
+      setPicked(inst ?? null);
+      setQuantity(String(editHolding.quantity));
+    } else {
+      setQuery('');
+      setPicked(null);
+      setQuantity('');
+    }
+  // instruments intentionally omitted — only re-init when visibility or the target holding changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, editHolding]);
 
   const reset = () => {
     setQuery('');
@@ -41,7 +59,7 @@ export default function AddHoldingModal({ visible, onClose, onAdd, instruments, 
   };
 
   const handleClose = () => {
-    reset();
+    if (!isEditMode) reset();
     onClose();
   };
 
@@ -49,7 +67,11 @@ export default function AddHoldingModal({ visible, onClose, onAdd, instruments, 
     if (!picked) return;
     const qty = Number(quantity);
     if (!Number.isFinite(qty) || qty <= 0) return;
-    onAdd({ symbol: picked.symbol, exchange: picked.exchange, quantity: qty });
+    if (isEditMode && onSave) {
+      onSave({ symbol: picked.symbol, exchange: picked.exchange, quantity: qty });
+    } else {
+      onAdd({ symbol: picked.symbol, exchange: picked.exchange, quantity: qty });
+    }
     reset();
     onClose();
   };
@@ -68,7 +90,7 @@ export default function AddHoldingModal({ visible, onClose, onAdd, instruments, 
         >
           <View style={styles.header}>
             <Text style={styles.title}>
-              {picked ? 'How many shares?' : 'Add a stock'}
+              {isEditMode ? 'Edit quantity' : picked ? 'How many shares?' : 'Add a stock'}
             </Text>
             <Pressable
               accessibilityRole="button"
@@ -106,20 +128,22 @@ export default function AddHoldingModal({ visible, onClose, onAdd, instruments, 
               />
 
               <View style={styles.qtyActions}>
+                {!isEditMode && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Back to search"
+                    onPress={() => setPicked(null)}
+                    style={({ pressed }) => [
+                      styles.secondaryBtn,
+                      pressed && styles.secondaryBtnPressed,
+                    ]}
+                  >
+                    <Text style={styles.secondaryLabel}>Back</Text>
+                  </Pressable>
+                )}
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Back to search"
-                  onPress={() => setPicked(null)}
-                  style={({ pressed }) => [
-                    styles.secondaryBtn,
-                    pressed && styles.secondaryBtnPressed,
-                  ]}
-                >
-                  <Text style={styles.secondaryLabel}>Back</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Add to portfolio"
+                  accessibilityLabel={isEditMode ? 'Save quantity' : 'Add to portfolio'}
                   onPress={handleSave}
                   disabled={!quantity || Number(quantity) <= 0}
                   style={({ pressed }) => [
@@ -128,7 +152,7 @@ export default function AddHoldingModal({ visible, onClose, onAdd, instruments, 
                     pressed && styles.primaryBtnPressed,
                   ]}
                 >
-                  <Text style={styles.primaryLabel}>Add</Text>
+                  <Text style={styles.primaryLabel}>{isEditMode ? 'Save' : 'Add'}</Text>
                 </Pressable>
               </View>
             </View>
