@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   FlatList,
   Pressable,
   StyleSheet,
@@ -16,9 +17,12 @@ import AddHoldingModal from './components/AddHoldingModal';
 import DiagonalStripes from './components/DiagonalStripes';
 import SwipeableRow from './components/SwipeableRow';
 import { fetchInstruments, findInstrument } from '../src/services/instruments.service';
-import { openPriceFeed, type PriceTick } from '../src/services/stream.service';
+import { openPriceFeed } from '../src/services/stream.service';
+import { fetchEod } from '../src/services/eod.service';
+import { savePriceCache } from '../src/storage/prices.storage';
 import { loadHoldings, saveHoldings } from '../src/storage/holdings.storage';
 import { colors, minTapTarget, radius, shadow, spacing, type } from '../src/theme/tokens';
+import type { PriceTick } from '../src/services/stream.service';
 import type { Holding, Instrument, InstrumentStatus } from '../src/types/domain';
 
 const inr = new Intl.NumberFormat('en-IN', {
@@ -26,6 +30,17 @@ const inr = new Intl.NumberFormat('en-IN', {
   currency: 'INR',
   maximumFractionDigits: 2,
 });
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+function formatEodTs(ts: number): string {
+  // Use ts only for the date — time is always 3:30 PM (market close)
+  const d = new Date(ts + IST_OFFSET_MS);
+  const day = d.getUTCDate();
+  const month = MONTHS[d.getUTCMonth()];
+  return `${day} ${month}, 3:30 PM`;
+}
 
 type HoldingRow = {
   holding: Holding;
@@ -42,6 +57,9 @@ export default function HomeScreen() {
   const [instruments, setInstruments] = useState<Instrument[]>([]);
   const [instrumentsLoading, setInstrumentsLoading] = useState(true);
   const [feedData, setFeedData] = useState<Record<string, PriceTick>>({});
+  const [feedStatus, setFeedStatus] = useState<'connecting' | 'live' | 'closed'>('connecting');
+  const [eodTs, setEodTs] = useState<number | null>(null);
+  const [appActive, setAppActive] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [showValues, setShowValues] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -80,6 +98,13 @@ export default function HomeScreen() {
     });
   }, []);
 
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      setAppActive(state === 'active');
+    });
+    return () => sub.remove();
+  }, []);
+
   // Derive a stable comma-joined key string so the stream only reconnects when
   // the actual set of subscribed instruments changes.
   const keysStr = useMemo(() => {
@@ -91,14 +116,42 @@ export default function HomeScreen() {
   }, [holdings, instruments]);
 
   useEffect(() => {
-    console.log(`[index] stream effect — loaded=${loaded} holdings=${holdings.length} keysStr="${keysStr}"`);
-    if (!loaded || holdings.length === 0 || !keysStr) return;
-    console.log(`[index] opening stream for keys:`, keysStr.split(','));
-    return openPriceFeed(keysStr.split(','), (ticks) => {
-      console.log(`[index] feedData update:`, ticks);
-      setFeedData((prev) => ({ ...prev, ...ticks }));
+    if (!loaded || holdings.length === 0 || !keysStr || !appActive) return;
+    setFeedStatus('connecting');
+    setEodTs(null);
+    const keys = keysStr.split(',');
+    return openPriceFeed(keys, {
+      onSnapshot: (ticks) => {
+        setFeedStatus('live');
+        setFeedData((prev) => {
+          const next = { ...prev, ...ticks };
+          savePriceCache(next).catch(() => {});
+          return next;
+        });
+      },
+      onTick: (ticks) => {
+        setFeedData((prev) => {
+          const next = { ...prev, ...ticks };
+          savePriceCache(next).catch(() => {});
+          return next;
+        });
+      },
+      onMarketClosed: () => {
+        setFeedStatus('closed');
+        fetchEod(keys).then((prices) => {
+          const ticks: Record<string, PriceTick> = {};
+          let latestTs: number | null = null;
+          for (const [key, p] of Object.entries(prices)) {
+            // cp=0 hides the change row — there's no intraday change in EOD
+            ticks[key] = { ltp: p.close, cp: 0 };
+            if (latestTs === null || p.ts > latestTs) latestTs = p.ts;
+          }
+          setFeedData((prev) => ({ ...prev, ...ticks }));
+          if (latestTs !== null) setEodTs(latestTs);
+        }).catch(() => {});
+      },
     });
-  }, [loaded, holdings.length, keysStr]);
+  }, [loaded, holdings.length, keysStr, appActive]);
 
   useEffect(() => {
     if (loaded) {
@@ -246,6 +299,11 @@ export default function HomeScreen() {
       <View style={styles.totalCard}>
         <View style={styles.totalCardAccent} />
         <Text style={styles.totalLabel}>Total portfolio</Text>
+        {feedStatus === 'closed' && (
+          <Text style={styles.marketClosedLabel}>
+            Market closed{eodTs !== null ? ` · As of ${formatEodTs(eodTs)}` : ''}
+          </Text>
+        )}
         <View style={styles.totalRow}>
           <Text style={styles.totalValue}>
             {showValues ? inr.format(total) : '••••••••'}
@@ -314,6 +372,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold500,
   },
   totalLabel: { ...type.bodyStrong, color: colors.gold200, letterSpacing: 0.4, paddingHorizontal: spacing.xl, paddingTop: spacing.xl },
+  marketClosedLabel: { ...type.caption, color: colors.gold200, opacity: 0.7, paddingHorizontal: spacing.xl, marginTop: spacing.xs },
   totalRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
