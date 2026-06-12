@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "Punji Bandhu",
+    "slug": "punji-bandhu",
+    "scheme": "punjibandhu",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.punjibandhu.app"
+    },
+    "android": {
+      "package": "com.punjibandhu.app",
+      "usesCleartextTraffic": true,
+      "adaptiveIcon": {
+        "backgroundColor": "#0F2A4A"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "48ff4c59-4e67-4436-927c-f5969afe73e8"
+      }
+    }
+  }
+}
