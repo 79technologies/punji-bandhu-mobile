@@ -196,7 +196,7 @@ export default function HomeScreen() {
     return (
       <View style={styles.empty}>
         <Text style={styles.emptyTitle}>No holdings yet</Text>
-        <Text style={styles.emptyBody}>Tap "Add stock" to track your first holding.</Text>
+        <Text style={styles.emptyBody}>Tap &quot;Add stock&quot; to track your first holding.</Text>
       </View>
     );
   }, [loaded]);
@@ -313,6 +313,19 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <View style={styles.appBar}>
+        <Text style={styles.wordmark}>Punji Bandhu</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="About this app and privacy"
+          onPress={() => router.push('/about')}
+          hitSlop={8}
+          style={({ pressed }) => [styles.aboutBtn, pressed && styles.aboutBtnPressed]}
+        >
+          <Text style={styles.aboutLabel}>About</Text>
+        </Pressable>
+      </View>
+
       <View style={styles.totalCard}>
         <View style={styles.totalCardAccent} />
         <Text style={styles.totalLabel}>Total portfolio</Text>
@@ -379,8 +392,29 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surfaceMuted },
 
+  appBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.sm,
+  },
+  wordmark: { ...type.h3, color: colors.textPrimary },
+  aboutBtn: {
+    minHeight: minTapTarget,
+    minWidth: minTapTarget,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aboutBtnPressed: { backgroundColor: colors.surfaceSunken },
+  aboutLabel: { ...type.bodyStrong, color: colors.navy700 },
+
   totalCard: {
-    margin: spacing.xl,
+    marginHorizontal: spacing.xl,
+    marginTop: spacing.md,
+    marginBottom: spacing.xl,
     borderRadius: radius.lg,
     backgroundColor: colors.navy900,
     overflow: 'hidden',
