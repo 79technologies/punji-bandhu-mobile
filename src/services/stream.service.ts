@@ -92,12 +92,21 @@ function openSSE(
   xhr.send();
 }
 
+// XMLHttpRequest keeps the whole response body in responseText for the lifetime of
+// the connection and never truncates it. On a feed held open for a full trading
+// session that grows without bound, and each onprogress slice walks a longer string,
+// so cost rises as the day goes on. Recycling the connection drops the buffer.
+// 15 min trades a sub-second reconnect gap (the server replays a snapshot on
+// connect) for bounded memory.
+const ROTATE_MS = 15 * 60 * 1000;
+
 /**
  * Opens a live price feed for the given instrument keys.
  * Only connects during NSE market hours (Mon–Fri 09:30–15:30 IST).
  * When closed (initially, via 503, or via market_closed SSE event), schedules
  * a reconnect at the next market open using msUntilNextMarketOpen().
  * Reconnects on network error with exponential backoff (1s → 2s → 4s … cap 30s).
+ * The live connection is recycled every ROTATE_MS to bound memory growth.
  * Returns a cleanup function that closes the connection and cancels any pending timer.
  */
 export function openPriceFeed(
@@ -118,8 +127,18 @@ export function openPriceFeed(
 
     // Per-attempt controller so aborting on market_closed doesn't kill future retries
     const ac = new AbortController();
-    abortCurrent = () => ac.abort();
     let closedByServer = false;
+    let rotating = false;
+
+    const rotateTimer = setTimeout(() => {
+      rotating = true;
+      ac.abort();
+    }, ROTATE_MS);
+
+    abortCurrent = () => {
+      clearTimeout(rotateTimer);
+      ac.abort();
+    };
 
     openSSE(
       url,
@@ -145,7 +164,15 @@ export function openPriceFeed(
         }
       },
       (err, status) => {
+        clearTimeout(rotateTimer);
         abortCurrent = null;
+
+        // Deliberate recycle, not a failure: reconnect at once, no backoff, no log.
+        if (rotating) {
+          if (!cancelled) retryTimer = setTimeout(attempt, 0);
+          return;
+        }
+
         if (err) console.error('[stream] connection error:', err);
 
         if (closedByServer || status === 503) {

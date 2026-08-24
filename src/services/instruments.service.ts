@@ -3,6 +3,7 @@ import {
   loadCachedInstruments,
   saveCachedInstruments,
 } from "../storage/instruments.storage";
+import { REQUEST_TIMEOUT_MS } from "./http";
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
 
@@ -48,39 +49,54 @@ export async function fetchInstruments(): Promise<Instrument[]> {
 
   console.log(`[instruments] fetchInstruments: fetching ${url}`);
 
-  let response: Response;
+  // Timer stays armed across the body read — see REQUEST_TIMEOUT_MS.
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), REQUEST_TIMEOUT_MS);
   try {
-    response = await fetch(url);
-  } catch (err) {
-    console.error('[instruments] fetchInstruments: network error (fetch threw):', err);
-    console.log(`[instruments] fetchInstruments: returning ${cached.length} cached instruments`);
-    return cached;
-  }
-
-  console.log(`[instruments] fetchInstruments: response status=${response.status}`);
-
-  if (response.status === 304) {
-    console.log(`[instruments] fetchInstruments: 304 Not Modified — returning ${cached.length} cached instruments`);
-    return cached;
-  }
-
-  if (response.status === 200) {
-    let body: InstrumentsResponse;
+    let response: Response;
     try {
-      body = (await response.json()) as InstrumentsResponse;
+      response = await fetch(url, { signal: ac.signal });
     } catch (err) {
-      console.error('[instruments] fetchInstruments: failed to parse JSON body:', err);
+      console.error('[instruments] fetchInstruments: network error (fetch threw):', err);
+      console.log(`[instruments] fetchInstruments: returning ${cached.length} cached instruments`);
       return cached;
     }
-    console.log(`[instruments] fetchInstruments: 200 OK — received ${body.instruments?.length ?? 'undefined'} instruments, hash=${body.hash}`);
-    const instruments = body.instruments.map(toInstrument);
-    await saveCachedInstruments(instruments, body.hash);
-    console.log(`[instruments] fetchInstruments: done — returning ${instruments.length} instruments`);
-    return instruments;
-  }
 
-  console.error(`[instruments] fetchInstruments: unexpected status ${response.status} — falling back to ${cached.length} cached instruments`);
-  return cached;
+    console.log(`[instruments] fetchInstruments: response status=${response.status}`);
+
+    if (response.status === 304) {
+      console.log(`[instruments] fetchInstruments: 304 Not Modified — returning ${cached.length} cached instruments`);
+      return cached;
+    }
+
+    if (response.status === 200) {
+      let body: InstrumentsResponse;
+      try {
+        body = (await response.json()) as InstrumentsResponse;
+      } catch (err) {
+        console.error('[instruments] fetchInstruments: failed to parse JSON body:', err);
+        return cached;
+      }
+      console.log(`[instruments] fetchInstruments: 200 OK — received ${body.instruments?.length ?? 'undefined'} instruments, hash=${body.hash}`);
+
+      // A 200 with a malformed body would otherwise throw on .map() and escape
+      // past the caller's fallback, emptying the list instead of keeping the cache.
+      if (!Array.isArray(body.instruments) || typeof body.hash !== 'string') {
+        console.error(`[instruments] fetchInstruments: malformed 200 body — falling back to ${cached.length} cached instruments`);
+        return cached;
+      }
+
+      const instruments = body.instruments.map(toInstrument);
+      await saveCachedInstruments(instruments, body.hash);
+      console.log(`[instruments] fetchInstruments: done — returning ${instruments.length} instruments`);
+      return instruments;
+    }
+
+    console.error(`[instruments] fetchInstruments: unexpected status ${response.status} — falling back to ${cached.length} cached instruments`);
+    return cached;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export function searchInstruments(
