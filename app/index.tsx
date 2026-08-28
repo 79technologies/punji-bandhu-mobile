@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   AppState,
@@ -14,15 +14,16 @@ import { router } from 'expo-router';
 import { hasOnboarded } from '../src/storage/onboarding.storage';
 
 import AddHoldingModal from './components/AddHoldingModal';
+import ConnectionOverlay from './components/ConnectionOverlay';
 import DiagonalStripes from './components/DiagonalStripes';
 import SwipeableRow from './components/SwipeableRow';
 import { fetchInstruments, findInstrument } from '../src/services/instruments.service';
 import { openPriceFeed } from '../src/services/stream.service';
-import { fetchEod } from '../src/services/eod.service';
-import { savePriceCache } from '../src/storage/prices.storage';
+import { loadPriceCache, savePriceCache } from '../src/storage/prices.storage';
 import { loadHoldings, saveHoldings } from '../src/storage/holdings.storage';
+import { formatPriceTs } from '../src/utils/format-time';
 import { colors, minTapTarget, radius, shadow, spacing, type } from '../src/theme/tokens';
-import type { PriceTick } from '../src/services/stream.service';
+import type { FeedStatus, PriceFeed, PriceTick } from '../src/services/stream.service';
 import type { Holding, Instrument, InstrumentStatus } from '../src/types/domain';
 
 const inr = new Intl.NumberFormat('en-IN', {
@@ -31,23 +32,14 @@ const inr = new Intl.NumberFormat('en-IN', {
   maximumFractionDigits: 2,
 });
 
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
-
-function formatEodTs(ts: number): string {
-  // Use ts only for the date — time is always 3:30 PM (market close)
-  const d = new Date(ts + IST_OFFSET_MS);
-  const day = d.getUTCDate();
-  const month = MONTHS[d.getUTCMonth()];
-  return `${day} ${month}, 3:30 PM`;
-}
+const NO_PRICE = '—';
 
 type HoldingRow = {
   holding: Holding;
   name: string;
-  lastPrice: number;
-  closePrice: number;
-  value: number;
+  lastPrice: number | null;
+  closePrice: number | null;
+  value: number | null;
   status: InstrumentStatus | undefined;
 };
 
@@ -57,13 +49,16 @@ export default function HomeScreen() {
   const [instruments, setInstruments] = useState<Instrument[]>([]);
   const [instrumentsLoading, setInstrumentsLoading] = useState(true);
   const [feedData, setFeedData] = useState<Record<string, PriceTick>>({});
-  const [feedStatus, setFeedStatus] = useState<'connecting' | 'live' | 'closed'>('connecting');
-  const [eodTs, setEodTs] = useState<number | null>(null);
+  const [feedStatus, setFeedStatus] = useState<FeedStatus>('connecting');
+  const [pricedAt, setPricedAt] = useState<number | null>(null);
+  const [dismissed, setDismissed] = useState(false);
   const [appActive, setAppActive] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [showValues, setShowValues] = useState(true);
   const [adding, setAdding] = useState(false);
   const [editingHolding, setEditingHolding] = useState<Holding | null>(null);
+
+  const feedRef = useRef<PriceFeed | null>(null);
 
   useEffect(() => {
     console.log('[HomeScreen] mounted — checking onboarding state');
@@ -73,27 +68,38 @@ export default function HomeScreen() {
       if (!val) {
         console.log('[HomeScreen] not onboarded — redirecting to /welcome');
         router.replace('/welcome');
-      } else {
-        console.log('[HomeScreen] onboarded — loading holdings and instruments');
-        loadHoldings()
-          .then((h) => {
-            console.log(`[HomeScreen] loadHoldings resolved: ${h.length} holdings`);
-            setHoldings(h);
-          })
-          .catch((err) => console.error('[HomeScreen] loadHoldings failed:', err))
-          .finally(() => setLoaded(true));
-        console.log('[HomeScreen] calling fetchInstruments');
-        fetchInstruments()
-          .then((list) => {
-            console.log(`[HomeScreen] fetchInstruments resolved: ${list.length} instruments`);
-            setInstruments(list);
-          })
-          .catch((err) => console.error('[HomeScreen] fetchInstruments threw unexpectedly:', err))
-          .finally(() => {
-            console.log('[HomeScreen] instrumentsLoading → false');
-            setInstrumentsLoading(false);
-          });
+        return;
       }
+
+      console.log('[HomeScreen] onboarded — loading holdings and instruments');
+      loadHoldings()
+        .then((h) => {
+          console.log(`[HomeScreen] loadHoldings resolved: ${h.length} holdings`);
+          setHoldings(h);
+        })
+        .catch((err) => console.error('[HomeScreen] loadHoldings failed:', err))
+        .finally(() => setLoaded(true));
+      // Last known prices are already on the device — show them straight away
+      // rather than rendering an empty portfolio while the feed connects.
+      loadPriceCache()
+        .then((cache) => {
+          if (!cache) return;
+          console.log(`[HomeScreen] loadPriceCache resolved: ${Object.keys(cache.prices).length} prices`);
+          setFeedData((prev) => ({ ...cache.prices, ...prev }));
+          setPricedAt((prev) => prev ?? cache.pricedAt);
+        })
+        .catch((err) => console.error('[HomeScreen] loadPriceCache failed:', err));
+      console.log('[HomeScreen] calling fetchInstruments');
+      fetchInstruments()
+        .then((list) => {
+          console.log(`[HomeScreen] fetchInstruments resolved: ${list.length} instruments`);
+          setInstruments(list);
+        })
+        .catch((err) => console.error('[HomeScreen] fetchInstruments threw unexpectedly:', err))
+        .finally(() => {
+          console.log('[HomeScreen] instrumentsLoading → false');
+          setInstrumentsLoading(false);
+        });
     }).catch((err) => {
       console.error('[HomeScreen] hasOnboarded failed:', err);
     });
@@ -116,43 +122,48 @@ export default function HomeScreen() {
       .join(',');
   }, [holdings, instruments]);
 
+  const applyTicks = useCallback((ticks: Record<string, PriceTick>, ts: number) => {
+    setFeedData((prev) => {
+      const next = { ...prev, ...ticks };
+      savePriceCache(next, ts).catch(() => {
+        // swallow — the next tick rewrites it; no remote logging by design
+      });
+      return next;
+    });
+    setPricedAt(ts);
+  }, []);
+
   useEffect(() => {
     if (!loaded || holdings.length === 0 || !keysStr || !appActive) return;
-    setFeedStatus('connecting');
-    setEodTs(null);
     const keys = keysStr.split(',');
-    return openPriceFeed(keys, {
-      onSnapshot: (ticks) => {
-        setFeedStatus('live');
-        setFeedData((prev) => {
-          const next = { ...prev, ...ticks };
-          savePriceCache(next).catch(() => {});
-          return next;
-        });
-      },
-      onTick: (ticks) => {
-        setFeedData((prev) => {
-          const next = { ...prev, ...ticks };
-          savePriceCache(next).catch(() => {});
-          return next;
-        });
-      },
-      onMarketClosed: () => {
-        setFeedStatus('closed');
-        fetchEod(keys).then((prices) => {
-          const ticks: Record<string, PriceTick> = {};
-          let latestTs: number | null = null;
-          for (const [key, p] of Object.entries(prices)) {
-            // cp=0 hides the change row — there's no intraday change in EOD
-            ticks[key] = { ltp: p.close, cp: 0 };
-            if (latestTs === null || p.ts > latestTs) latestTs = p.ts;
-          }
-          setFeedData((prev) => ({ ...prev, ...ticks }));
-          if (latestTs !== null) setEodTs(latestTs);
-        }).catch(() => {});
-      },
+    const feed = openPriceFeed(keys, {
+      onStatus: setFeedStatus,
+      onSnapshot: (ticks) => applyTicks(ticks, Date.now()),
+      onTick: (ticks) => applyTicks(ticks, Date.now()),
+      // EOD carries its own timestamp — the exchange close, not the moment we
+      // happened to fetch it.
+      onEodPrices: (ticks, ts) => applyTicks(ticks, ts ?? Date.now()),
     });
-  }, [loaded, holdings.length, keysStr, appActive]);
+    feedRef.current = feed;
+    return () => {
+      feed.close();
+      feedRef.current = null;
+    };
+  }, [loaded, holdings.length, keysStr, appActive, applyTicks]);
+
+  // Holdings exist but no instrument resolved to a key — the instruments fetch
+  // failed with nothing cached, so no feed will ever open. Without this the
+  // status would sit on 'connecting' forever behind a blur with no way out.
+  useEffect(() => {
+    if (loaded && !instrumentsLoading && holdings.length > 0 && !keysStr) {
+      setFeedStatus('offline');
+    }
+  }, [loaded, instrumentsLoading, holdings.length, keysStr]);
+
+  // A fresh connect attempt supersedes any previous dismissal.
+  useEffect(() => {
+    if (feedStatus !== 'offline') setDismissed(false);
+  }, [feedStatus]);
 
   useEffect(() => {
     if (loaded) {
@@ -163,26 +174,72 @@ export default function HomeScreen() {
   }, [holdings, loaded]);
 
   const rows = useMemo<HoldingRow[]>(() => {
+    const live = feedStatus === 'live';
     return holdings.map((h) => {
       const instrument = findInstrument(instruments, h.symbol, h.exchange);
       const tick = instrument ? feedData[instrument.key] : undefined;
-      const lastPrice = tick?.ltp ?? 0;
-      const closePrice = tick?.cp ?? 0;
+      const lastPrice = tick?.ltp ?? null;
       return {
         holding: h,
         name: instrument?.name ?? h.symbol,
         lastPrice,
-        closePrice,
-        value: lastPrice * h.quantity,
+        // Today's change is only meaningful against a live feed. A cached tick's
+        // cp is yesterday's close, which would render yesterday's change as if it
+        // were today's. EOD already suppresses it by sending cp=0.
+        closePrice: live ? (tick?.cp ?? null) : null,
+        value: lastPrice === null ? null : lastPrice * h.quantity,
         status: instrument?.status,
       };
     });
-  }, [holdings, instruments, feedData]);
+  }, [holdings, instruments, feedData, feedStatus]);
 
-  const total = useMemo(
-    () => rows.reduce((sum, r) => sum + r.value, 0),
-    [rows],
-  );
+  const { total, unpriced } = useMemo(() => {
+    let sum = 0;
+    const unpriced: string[] = [];
+    for (const r of rows) {
+      if (r.value === null) unpriced.push(r.holding.symbol);
+      else sum += r.value;
+    }
+    return { total: sum, unpriced };
+  }, [rows]);
+
+  const allUnpriced = rows.length > 0 && unpriced.length === rows.length;
+
+  const excludesLabel = useMemo(() => {
+    if (unpriced.length === 0 || allUnpriced) return null;
+    if (unpriced.length === 1) return `Excludes ${unpriced[0]} — no price yet`;
+    if (unpriced.length === 2) return `Excludes ${unpriced[0]} and ${unpriced[1]} — no price yet`;
+    return `Excludes ${unpriced.length} holdings — no price yet`;
+  }, [unpriced, allUnpriced]);
+
+  const stampLabel = useMemo(() => {
+    if (feedStatus === 'live' || pricedAt === null) return null;
+    const stamp = `As of ${formatPriceTs(pricedAt)}`;
+    return feedStatus === 'closed' ? `Market closed · ${stamp}` : stamp;
+  }, [feedStatus, pricedAt]);
+
+  const overlayMode = useMemo<'connecting' | 'failed' | null>(() => {
+    // Nothing to connect for — never blur an empty portfolio.
+    if (holdings.length === 0) return null;
+    if (feedStatus === 'connecting') return 'connecting';
+    if (feedStatus === 'offline' && !dismissed) return 'failed';
+    return null;
+  }, [holdings.length, feedStatus, dismissed]);
+
+  const handleRetry = useCallback(() => {
+    setDismissed(false);
+    if (feedRef.current) {
+      feedRef.current.retry();
+      return;
+    }
+    // No feed was ever opened — the instruments fetch is what failed.
+    setFeedStatus('connecting');
+    setInstrumentsLoading(true);
+    fetchInstruments()
+      .then(setInstruments)
+      .catch((err) => console.error('[HomeScreen] instruments retry failed:', err))
+      .finally(() => setInstrumentsLoading(false));
+  }, []);
 
   const listEmpty = useMemo(() => {
     if (!loaded) {
@@ -239,10 +296,14 @@ export default function HomeScreen() {
 
   const renderRow = useCallback(
     ({ item }: { item: HoldingRow }) => {
-      const change = item.closePrice > 0 ? item.lastPrice - item.closePrice : null;
-      const changePct = change !== null && item.closePrice > 0
-        ? (change / item.closePrice) * 100
-        : null;
+      const change =
+        item.closePrice !== null && item.closePrice > 0 && item.lastPrice !== null
+          ? item.lastPrice - item.closePrice
+          : null;
+      const changePct =
+        change !== null && item.closePrice !== null && item.closePrice > 0
+          ? (change / item.closePrice) * 100
+          : null;
       const isGain = change !== null && change >= 0;
 
       return (
@@ -285,7 +346,8 @@ export default function HomeScreen() {
                 {item.name}
               </Text>
               <Text style={styles.rowMeta}>
-                {showValues ? item.holding.quantity : '••••'} × {inr.format(item.lastPrice)}
+                {showValues ? item.holding.quantity : '••••'} ×{' '}
+                {item.lastPrice === null ? NO_PRICE : inr.format(item.lastPrice)}
               </Text>
               {change !== null && (
                 <Text style={isGain ? styles.rowGain : styles.rowLoss}>
@@ -294,7 +356,11 @@ export default function HomeScreen() {
               )}
             </View>
             <Text style={styles.rowValue}>
-              {showValues ? inr.format(item.value) : '••••••'}
+              {item.value === null
+                ? NO_PRICE
+                : showValues
+                  ? inr.format(item.value)
+                  : '••••••'}
             </Text>
           </Pressable>
         </SwipeableRow>
@@ -329,14 +395,19 @@ export default function HomeScreen() {
       <View style={styles.totalCard}>
         <View style={styles.totalCardAccent} />
         <Text style={styles.totalLabel}>Total portfolio</Text>
-        {feedStatus === 'closed' && (
-          <Text style={styles.marketClosedLabel}>
-            Market closed{eodTs !== null ? ` · As of ${formatEodTs(eodTs)}` : ''}
-          </Text>
+        {stampLabel !== null && (
+          <Text style={styles.totalStamp}>{stampLabel}</Text>
+        )}
+        {excludesLabel !== null && (
+          <Text style={styles.totalExcludes}>{excludesLabel}</Text>
         )}
         <View style={styles.totalRow}>
           <Text style={styles.totalValue}>
-            {showValues ? inr.format(total) : '••••••••'}
+            {allUnpriced
+              ? NO_PRICE
+              : showValues
+                ? inr.format(total)
+                : '••••••••'}
           </Text>
           <Pressable
             accessibilityRole="button"
@@ -352,6 +423,23 @@ export default function HomeScreen() {
           </Pressable>
         </View>
       </View>
+
+      {feedStatus === 'offline' && dismissed && (
+        <View style={styles.banner}>
+          <Text style={styles.bannerText}>
+            Couldn&apos;t update prices.
+            {pricedAt !== null ? ` Saved ${formatPriceTs(pricedAt)}.` : ''}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Try again"
+            onPress={handleRetry}
+            style={({ pressed }) => [styles.bannerBtn, pressed && styles.bannerBtnPressed]}
+          >
+            <Text style={styles.bannerBtnLabel}>Try again</Text>
+          </Pressable>
+        </View>
+      )}
 
       <FlatList
         data={rows}
@@ -385,6 +473,15 @@ export default function HomeScreen() {
         instruments={instruments}
         instrumentsLoading={instrumentsLoading}
       />
+
+      {overlayMode !== null && (
+        <ConnectionOverlay
+          mode={overlayMode}
+          pricedAt={pricedAt}
+          onRetry={handleRetry}
+          onDismiss={() => setDismissed(true)}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -425,7 +522,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gold500,
   },
   totalLabel: { ...type.bodyStrong, color: colors.gold200, letterSpacing: 0.4, paddingHorizontal: spacing.xl, paddingTop: spacing.xl },
-  marketClosedLabel: { ...type.caption, color: colors.gold200, opacity: 0.7, paddingHorizontal: spacing.xl, marginTop: spacing.xs },
+  totalStamp: { ...type.caption, color: colors.gold200, opacity: 0.7, paddingHorizontal: spacing.xl, marginTop: spacing.xs },
+  totalExcludes: { ...type.caption, color: colors.gold200, opacity: 0.7, paddingHorizontal: spacing.xl, marginTop: spacing.xs },
   totalRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -451,6 +549,32 @@ const styles = StyleSheet.create({
   },
   eyeBtnPressed: { backgroundColor: colors.navy700 },
   eyeLabel: { fontSize: 20, color: colors.gold200 },
+
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    marginHorizontal: spacing.xl,
+    marginTop: -spacing.md,
+    marginBottom: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.warningBorder,
+    backgroundColor: colors.warningSurface,
+  },
+  bannerText: { ...type.caption, color: colors.warning, flex: 1 },
+  bannerBtn: {
+    minHeight: minTapTarget,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bannerBtnPressed: { backgroundColor: colors.warningBorder },
+  bannerBtnLabel: { ...type.bodyStrong, color: colors.warning },
 
   listContent: { paddingBottom: 120 },
 

@@ -41,6 +41,6 @@ export function msUntilNextMarketOpen(now: Date = new Date()): number {
 
   const nextOpen = new Date(ist);
   nextOpen.setUTCDate(nextOpen.getUTCDate() + daysToAdd);
-  nextOpen.setUTCHours(9, 30, 0, 0);
+  nextOpen.setUTCHours(9, 15, 0, 0);
   return nextOpen.getTime() - IST_OFFSET_MS - now.getTime();
 }

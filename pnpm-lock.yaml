@@ -14,6 +14,9 @@ importers:
       expo:
         specifier: ~55.0.29
         version: 55.0.30(@babel/core@7.29.0)(@expo/dom-webview@55.0.6)(@expo/metro-runtime@55.0.12)(expo-router@55.0.18)(react-dom@19.2.0(react@19.2.0))(react-native@0.83.10(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
+      expo-blur:
+        specifier: ~55.0.18
+        version: 55.0.18(expo@55.0.30)(react-native@0.83.10(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)
       expo-constants:
         specifier: ~55.0.17
         version: 55.0.17(expo@55.0.30)(react-native@0.83.10(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))
@@ -2180,6 +2183,13 @@ packages:
 
   expo-asset@55.0.20:
     resolution: {integrity: sha512-BpybBESZj8WxW/WXuQhiY8D1azkJtxLuteIfprokJw0uU5r/g7cD+vzrzKJSlE4hhUlKeUGsoKzSK0nSJJ2sMQ==}
+    peerDependencies:
+      expo: '*'
+      react: '*'
+      react-native: '*'
+
+  expo-blur@55.0.18:
+    resolution: {integrity: sha512-eXuVAahonZXLrXa//isvq72ed1to/MmbHUyd2WTkRH2/FjC9X91rZ4BUNIFBZnAxaNXQrKw/ITfG/VMVz1DIhQ==}
     peerDependencies:
       expo: '*'
       react: '*'
@@ -6787,6 +6797,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
       - typescript
+
+  expo-blur@55.0.18(expo@55.0.30)(react-native@0.83.10(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0):
+    dependencies:
+      expo: 55.0.30(@babel/core@7.29.0)(@expo/dom-webview@55.0.6)(@expo/metro-runtime@55.0.12)(expo-router@55.0.18)(react-dom@19.2.0(react@19.2.0))(react-native@0.83.10(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
+      react: 19.2.0
+      react-native: 0.83.10(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0)
 
   expo-constants@55.0.17(expo@55.0.30)(react-native@0.83.10(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0)):
     dependencies:

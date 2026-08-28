@@ -37,6 +37,12 @@ export const colors = {
   gain: '#1F7A4A',  // green; on white 6.4:1.
   loss: '#A12626',  // red; on white 6.5:1.
 
+  // Warning — prices that are stale or failed to refresh. Amber rather than loss
+  // red: nothing has gone down, the number is merely unconfirmed.
+  warning: '#8A4B08',           // on warningSurface 6.1:1, on white 6.9:1.
+  warningSurface: '#FEF6D9',
+  warningBorder: '#E9D08A',
+
   // States
   focusRing: '#3A6BA1',
 } as const;

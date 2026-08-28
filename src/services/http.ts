@@ -13,3 +13,8 @@
 // this audience is often on poor mobile connections. It is an upper bound on a
 // hang, not a target latency.
 export const REQUEST_TIMEOUT_MS = 15_000;
+
+// EOD returns a handful of closes for held keys only, so it does not need the
+// allowance the instruments payload does. Matched to the feed's snapshot deadline
+// so both transports fail at the same pace — see ADR 0001.
+export const EOD_TIMEOUT_MS = 8_000;
