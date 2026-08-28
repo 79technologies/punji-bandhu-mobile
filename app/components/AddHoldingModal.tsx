@@ -170,7 +170,7 @@ export default function AddHoldingModal({ visible, onClose, onAdd, onSave, editH
               />
               <FlatList
                 data={results}
-                keyExtractor={(s) => `${s.exchange}:${s.symbol}`}
+                keyExtractor={(s) => s.key}
                 keyboardShouldPersistTaps="handled"
                 onScrollBeginDrag={Keyboard.dismiss}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
