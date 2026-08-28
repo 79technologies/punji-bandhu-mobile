@@ -1,9 +1,11 @@
-import { useEffect, useRef } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AppState, Platform, type AppStateStatus } from 'react-native';
 import { Stack, router, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { preventScreenCaptureAsync } from 'expo-screen-capture';
 
+import PrivacyCover from './components/PrivacyCover';
 import { hasOnboarded } from '../src/storage/onboarding.storage';
 import { hasPin } from '../src/storage/pin.storage';
 import { markLocked } from '../src/state/lock-session';
@@ -39,8 +41,40 @@ function useRelockOnResume() {
   }, []);
 }
 
+// Android has no JS-visible hook into "the OS is about to snapshot this
+// window for the recents thumbnail" — FLAG_SECURE is the only reliable way
+// to blank it, and it also blocks screenshots/screen recording, which is a
+// reasonable default for a screen that shows someone's holdings.
+function useHideFromScreenCapture() {
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      preventScreenCaptureAsync();
+    }
+  }, []);
+}
+
+// iOS has no FLAG_SECURE equivalent in the managed workflow, so the app
+// switcher preview is covered reactively: the instant AppState leaves
+// 'active' (entering the switcher fires 'inactive' before 'background'),
+// render an opaque cover so the OS captures that instead of the holdings
+// screen underneath.
+function usePrivacyCover() {
+  const [active, setActive] = useState(AppState.currentState === 'active');
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
+      setActive(next === 'active');
+    });
+    return () => sub.remove();
+  }, []);
+
+  return !active;
+}
+
 export default function RootLayout() {
   useRelockOnResume();
+  useHideFromScreenCapture();
+  const covered = usePrivacyCover();
 
   return (
     <SafeAreaProvider>
@@ -51,6 +85,7 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: '#F7F5F0' },
         }}
       />
+      {covered && <PrivacyCover />}
     </SafeAreaProvider>
   );
 }
