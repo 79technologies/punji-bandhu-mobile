@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { router } from 'expo-router';
 import { hasOnboarded } from '../src/storage/onboarding.storage';
@@ -46,6 +46,7 @@ type HoldingRow = {
 };
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
   // True only once onboarding + PIN/biometric gating have all cleared —
   // guards against flashing the real holdings UI while a redirect to
@@ -464,12 +465,12 @@ export default function HomeScreen() {
         data={rows}
         keyExtractor={(r) => `${r.holding.exchange}:${r.holding.symbol}`}
         renderItem={renderRow}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListEmptyComponent={listEmpty}
       />
 
-      <View style={styles.fabWrap}>
+      <View style={[styles.fabWrap, { bottom: spacing.xl + insets.bottom }]}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Add a stock"
@@ -595,8 +596,6 @@ const styles = StyleSheet.create({
   bannerBtnPressed: { backgroundColor: colors.warningBorder },
   bannerBtnLabel: { ...type.bodyStrong, color: colors.warning },
 
-  listContent: { paddingBottom: 120 },
-
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -660,7 +659,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: spacing.xl,
     right: spacing.xl,
-    bottom: spacing.xl,
   },
   fab: {
     minHeight: minTapTarget + 8,
