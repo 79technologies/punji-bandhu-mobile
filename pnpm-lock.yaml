@@ -20,12 +20,21 @@ importers:
       expo-constants:
         specifier: ~55.0.17
         version: 55.0.17(expo@55.0.30)(react-native@0.83.10(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))
+      expo-crypto:
+        specifier: ~55.0.19
+        version: 55.0.19(expo@55.0.30)
       expo-linking:
         specifier: ~55.0.17
         version: 55.0.17(expo@55.0.30)(react-native@0.83.10(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)
+      expo-local-authentication:
+        specifier: ~55.0.18
+        version: 55.0.18(expo@55.0.30)
       expo-router:
         specifier: ~55.0.18
         version: 55.0.18(@expo/log-box@55.0.13)(@expo/metro-runtime@55.0.12)(@types/react@19.2.14)(expo-constants@55.0.17)(expo-font@55.0.8)(expo-linking@55.0.17)(expo@55.0.30)(react-dom@19.2.0(react@19.2.0))(react-native-safe-area-context@5.6.2(react-native@0.83.10(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0))(react-native-screens@4.23.0(react-native@0.83.10(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0))(react-native@0.83.10(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)
+      expo-secure-store:
+        specifier: ~55.0.18
+        version: 55.0.18(expo@55.0.30)
       expo-splash-screen:
         specifier: ~55.0.24
         version: 55.0.25(expo@55.0.30)(typescript@5.9.3)
@@ -2201,6 +2210,11 @@ packages:
       expo: '*'
       react-native: '*'
 
+  expo-crypto@55.0.19:
+    resolution: {integrity: sha512-Ip1jQ5GphvrC4Ls5osAmIapi+JZXOqRJYaaMxTFWpkhssNUq88oP45pWGv2uU2K/Ci6j7iLDJzU8eN3v+B7jrA==}
+    peerDependencies:
+      expo: '*'
+
   expo-file-system@55.0.26:
     resolution: {integrity: sha512-KBOQWqxumCxJBN29Lu13QpccwAhcjsgDYCJSVVjfGydaK/UbEkH/1rT/WZmdfoZ4G8mUJlfRbWfnJtfHUXxsdw==}
     peerDependencies:
@@ -2243,6 +2257,11 @@ packages:
     peerDependencies:
       react: '*'
       react-native: '*'
+
+  expo-local-authentication@55.0.18:
+    resolution: {integrity: sha512-3ybbTDvEOHR/H8HF65iavsnlgVvI0FYo9JREiLQzaq8/s4nfJ0KZN5e9e+KUfSwqOhdqf8urf3jlAHRZQYUXSg==}
+    peerDependencies:
+      expo: '*'
 
   expo-modules-autolinking@55.0.27:
     resolution: {integrity: sha512-gBRONXQT41PwfsQgeZfFlaeK+zrYMYjRMgxocecnQuSXEm7wCTqD8SsTJmWAf3SDayMQGDZFBlMODeVEnv8FmA==}
@@ -2292,6 +2311,11 @@ packages:
         optional: true
       react-server-dom-webpack:
         optional: true
+
+  expo-secure-store@55.0.18:
+    resolution: {integrity: sha512-shKZYQf7/KA45Z3oEIXUkXdrfRNFxsc+fJC182bbpuKqS4nLPZslsJUqruQ937Zkkbev126N/QJv+zmd6FpZjA==}
+    peerDependencies:
+      expo: '*'
 
   expo-server@55.0.12:
     resolution: {integrity: sha512-yuNHbxobUKCXWn9Z/H+lgYk6heXEFub6q1h8Yo9kCLxgL2afluWZ/YylbtxgHgmFwDVUmi6milQYfL+wwQMlzw==}
@@ -6812,6 +6836,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  expo-crypto@55.0.19(expo@55.0.30):
+    dependencies:
+      expo: 55.0.30(@babel/core@7.29.0)(@expo/dom-webview@55.0.6)(@expo/metro-runtime@55.0.12)(expo-router@55.0.18)(react-dom@19.2.0(react@19.2.0))(react-native@0.83.10(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
+
   expo-file-system@55.0.26(expo@55.0.30)(react-native@0.83.10(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0)):
     dependencies:
       expo: 55.0.30(@babel/core@7.29.0)(@expo/dom-webview@55.0.6)(@expo/metro-runtime@55.0.12)(expo-router@55.0.18)(react-dom@19.2.0(react@19.2.0))(react-native@0.83.10(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
@@ -6851,6 +6879,11 @@ snapshots:
     transitivePeerDependencies:
       - expo
       - supports-color
+
+  expo-local-authentication@55.0.18(expo@55.0.30):
+    dependencies:
+      expo: 55.0.30(@babel/core@7.29.0)(@expo/dom-webview@55.0.6)(@expo/metro-runtime@55.0.12)(expo-router@55.0.18)(react-dom@19.2.0(react@19.2.0))(react-native@0.83.10(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
+      invariant: 2.2.4
 
   expo-modules-autolinking@55.0.27(typescript@5.9.3):
     dependencies:
@@ -6912,6 +6945,10 @@ snapshots:
       - '@types/react-dom'
       - expo-font
       - supports-color
+
+  expo-secure-store@55.0.18(expo@55.0.30):
+    dependencies:
+      expo: 55.0.30(@babel/core@7.29.0)(@expo/dom-webview@55.0.6)(@expo/metro-runtime@55.0.12)(expo-router@55.0.18)(react-dom@19.2.0(react@19.2.0))(react-native@0.83.10(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)(typescript@5.9.3)
 
   expo-server@55.0.12: {}
 

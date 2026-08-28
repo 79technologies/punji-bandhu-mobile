@@ -20,6 +20,10 @@ export async function saveHoldings(holdings: Holding[]): Promise<void> {
   await AsyncStorage.setItem(KEY, JSON.stringify(holdings));
 }
 
+export async function clearHoldings(): Promise<void> {
+  await AsyncStorage.removeItem(KEY);
+}
+
 function isHolding(value: unknown): value is Holding {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;

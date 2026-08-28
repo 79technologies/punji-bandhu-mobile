@@ -31,3 +31,7 @@ export async function savePriceCache(
   const cache: PriceCache = { prices, pricedAt };
   await AsyncStorage.setItem(KEY, JSON.stringify(cache));
 }
+
+export async function clearPriceCache(): Promise<void> {
+  await AsyncStorage.removeItem(KEY);
+}

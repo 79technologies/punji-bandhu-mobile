@@ -40,6 +40,13 @@
           "resizeMode": "contain",
           "backgroundColor": "#0F2A4A"
         }
+      ],
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Punji Bandhu uses Face ID to unlock the app on your phone. Nothing is sent anywhere."
+        }
       ]
     ],
     "experiments": {

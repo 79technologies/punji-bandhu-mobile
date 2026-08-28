@@ -12,6 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { router } from 'expo-router';
 import { hasOnboarded } from '../src/storage/onboarding.storage';
+import { hasPin } from '../src/storage/pin.storage';
+import { isUnlocked } from '../src/state/lock-session';
 
 import AddHoldingModal from './components/AddHoldingModal';
 import ConnectionOverlay from './components/ConnectionOverlay';
@@ -45,6 +47,10 @@ type HoldingRow = {
 
 export default function HomeScreen() {
   const [onboarded, setOnboarded] = useState<boolean | null>(null);
+  // True only once onboarding + PIN/biometric gating have all cleared —
+  // guards against flashing the real holdings UI while a redirect to
+  // /pin-setup or /lock is still in flight.
+  const [authorized, setAuthorized] = useState(false);
   const [holdings, setHoldings] = useState<Holding[]>([]);
   const [instruments, setInstruments] = useState<Instrument[]>([]);
   const [instrumentsLoading, setInstrumentsLoading] = useState(true);
@@ -62,7 +68,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     console.log('[HomeScreen] mounted — checking onboarding state');
-    hasOnboarded().then((val) => {
+    hasOnboarded().then(async (val) => {
       console.log(`[HomeScreen] hasOnboarded resolved: ${val}`);
       setOnboarded(val);
       if (!val) {
@@ -71,7 +77,20 @@ export default function HomeScreen() {
         return;
       }
 
+      const pinSet = await hasPin();
+      if (!pinSet) {
+        console.log('[HomeScreen] no PIN set — redirecting to /pin-setup');
+        router.replace('/pin-setup');
+        return;
+      }
+      if (!isUnlocked()) {
+        console.log('[HomeScreen] locked — redirecting to /lock');
+        router.replace('/lock');
+        return;
+      }
+
       console.log('[HomeScreen] onboarded — loading holdings and instruments');
+      setAuthorized(true);
       loadHoldings()
         .then((h) => {
           console.log(`[HomeScreen] loadHoldings resolved: ${h.length} holdings`);
@@ -369,7 +388,7 @@ export default function HomeScreen() {
     [handleRemove, showValues],
   );
 
-  if (onboarded === null || !onboarded) {
+  if (onboarded === null || !onboarded || !authorized) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.surfaceMuted, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={colors.navy500} />
