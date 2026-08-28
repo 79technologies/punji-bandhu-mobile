@@ -1,6 +1,7 @@
 {
   "name": "punji-bandhu-mobile",
   "version": "0.1.0",
+  "packageManager": "pnpm@11.5.2",
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
